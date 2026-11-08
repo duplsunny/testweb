@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bill Collection Dashboard</title>
+<!-- Chart.js CDN for Graphs -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  /* ================= GLOBAL STYLES ================= */
+  *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Tahoma,sans-serif;}
+  :root{
+    --primary:#4361ee; --primary-dark:#3a0ca3; --success:#06d6a0;
+    --warning:#f77f00; --danger:#ef476f; --bg:#f4f6fb; --card:#fff;
+    --text:#1a1a2e; --muted:#8a8fa3; --border:#e8ecf4;
+  }
+  body{background:var(--bg);color:var(--text);padding:16px;min-height:100vh;}
+  .container{max-width:1350px;margin:0 auto;}
+
+  /* ================= HEADER ================= */
+  header{
+    background:linear-gradient(135deg,#4361ee 0%,#3a0ca3 50%,#7209b7 100%);
+    color:#fff;padding:22px 28px;border-radius:18px;margin-bottom:20px;
+    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;
+    box-shadow:0 8px 24px rgba(67,97,238,.25);position:relative;overflow:hidden;
+  }
+  header::before{content:'';position:absolute;top:-50%;right:-10%;width:300px;height:300px;background:rgba(255,255,255,.08);border-radius:50%;}
+  header::after{content:'';position:absolute;bottom:-60%;right:15%;width:200px;height:200px;background:rgba(255,255,255,.05);border-radius:50%;}
+  header h1{font-size:23px;position:relative;z-index:1;display:flex;align-items:center;gap:10px;}
+  header p{font-size:13px;opacity:.85;margin-top:4px;position:relative;z-index:1;}
+  .header-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;position:relative;z-index:1;}
+  .month-sel{padding:10px 16px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:rgba(255,255,255,.95);color:var(--primary-dark);}
+
+  /* ================= TABS ================= */
+  .tabs{display:flex;gap:10px;margin-bottom:22px;flex-wrap:wrap;}
+  .tab-btn{
+    padding:13px 24px;border:none;background:#fff;border-radius:12px;cursor:pointer;
+    font-weight:600;font-size:14px;color:#666;transition:all .25s;
+    box-shadow:0 2px 6px rgba(0,0,0,.06);display:flex;align-items:center;gap:8px;
+  }
+  .tab-btn:hover{background:#eef2ff;transform:translateY(-2px);color:var(--primary);}
+  .tab-btn.active{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;box-shadow:0 6px 18px rgba(67,97,238,.35);transform:translateY(-2px);}
+
+  /* ================= TAB CONTENT ================= */
+  .tab-content{display:none;}
+  .tab-content.active{display:block;animation:fadeIn .35s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+
+  /* ================= CARDS ================= */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-bottom:22px;}
+  .card{
+    background:var(--card);padding:20px 22px;border-radius:14px;
+    box-shadow:0 4px 14px rgba(0,0,0,.05);position:relative;overflow:hidden;
+    border-top:4px solid var(--primary);transition:all .3s;cursor:default;
+  }
+  .card:hover{transform:translateY(-4px);box-shadow:0 10px 25px rgba(0,0,0,.1);}
+  .card.green{border-top-color:var(--success);}
+  .card.orange{border-top-color:var(--warning);}
+  .card.red{border-top-color:var(--danger);}
+  .card.purple{border-top-color:#7209b7;}
+  .card .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;font-weight:600;}
+  .card .value{font-size:26px;font-weight:800;margin-top:8px;line-height:1.2;word-break:break-word;}
+  .card .sub{font-size:12px;color:var(--muted);margin-top:6px;}
+  .card .icon{position:absolute;right:16px;top:16px;font-size:26px;opacity:.18;}
+
+  /* ================= PANEL ================= */
+  .panel{background:var(--card);border-radius:14px;padding:22px;box-shadow:0 4px 14px rgba(0,0,0,.05);margin-bottom:20px;transition:.3s;}
+  .panel:hover{box-shadow:0 8px 22px rgba(0,0,0,.08);}
+  .panel h3{font-size:16px;margin-bottom:16px;color:var(--primary-dark);display:flex;align-items:center;gap:8px;}
+
+  /* ================= TABLE ================= */
+  .table-wrap{overflow-x:auto;border-radius:10px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{background:linear-gradient(180deg,#f8faff,#eef2ff);text-align:left;padding:12px 10px;color:#555;font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;position:sticky;top:0;}
+  td{padding:12px 10px;border-bottom:1px solid var(--border);transition:.15s;}
+  tr:hover td{background:#fafbff;}
+  tr.rank-1 td:first-child{color:#d97706;font-weight:800;}
+
+  /* ================= PROGRESS ================= */
+  .progress{background:#eef2ff;border-radius:20px;height:9px;overflow:hidden;min-width:80px;}
+  .progress>div{height:100%;border-radius:20px;background:linear-gradient(90deg,var(--primary),var(--success));transition:width .6s ease;}
+
+  /* ================= BADGES ================= */
+  .badge{padding:4px 11px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block;}
+  .badge.good{background:#d8f5ea;color:#06a97c;}
+  .badge.mid{background:#fff0d6;color:#d97706;}
+  .badge.low{background:#ffe0e8;color:#e11d48;}
+  .badge.type-fixed{background:#e0e7ff;color:#3a0ca3;}
+  .badge.type-per{background:#fce7f3;color:#be185d;}
+
+  /* ================= FORMS ================= */
+  input,select,button{font-family:inherit;}
+  .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:16px;}
+  .field{display:flex;flex-direction:column;}
+  .field label{font-size:12px;font-weight:600;color:#555;margin-bottom:6px;}
+  .field input,.field select{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:9px;font-size:14px;transition:.2s;background:#fafbff;}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(67,97,238,.12);}
+
+  /* ================= BUTTONS ================= */
+  .btn{padding:11px 22px;border:none;border-radius:9px;font-weight:600;cursor:pointer;font-size:14px;transition:.2s;display:inline-flex;align-items:center;gap:6px;}
+  .btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;box-shadow:0 4px 12px rgba(67,97,238,.3);}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(67,97,238,.4);}
+  .btn-danger{background:#ffe0e8;color:var(--danger);}
+  .btn-danger:hover{background:var(--danger);color:#fff;}
+  .btn-edit{background:#e0e7ff;color:var(--primary-dark);}
+  .btn-edit:hover{background:var(--primary-dark);color:#fff;}
+  .btn-sm{padding:8px 14px;font-size:13px;}
+  .btn-icon{padding:7px 11px;font-size:13px;border-radius:7px;}
+
+  /* ================= TOOLBAR ================= */
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
+  .toolbar select,.toolbar input{padding:10px 14px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;background:#fafbff;}
+  .toolbar select:focus,.toolbar input:focus{outline:none;border-color:var(--primary);background:#fff;}
+
+  /* ================= CHART ================= */
+  .chart-box{position:relative;height:340px;}
+
+  /* ================= EMPTY STATE ================= */
+  .empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:14px;}
+  .empty-icon{font-size:42px;margin-bottom:12px;opacity:.5;}
+
+  /* ================= MODAL ================= */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:1000;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);}
+  .modal-overlay.show{display:flex;animation:fadeIn .2s;}
+  .modal{background:#fff;border-radius:16px;padding:26px;max-width:650px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 50px rgba(0,0,0,.3);animation:slideUp .3s;}
+  @keyframes slideUp{from{transform:translateY(30px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  .modal h3{font-size:18px;margin-bottom:18px;color:var(--primary-dark);display:flex;justify-content:space-between;align-items:center;}
+  .modal-close{cursor:pointer;font-size:22px;color:#999;background:none;border:none;padding:0 6px;}
+  .modal-close:hover{color:var(--danger);}
+  .modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;}
+
+  /* ================= CLIENT LIST ================= */
+  .client-row{display:flex;align-items:center;gap:10px;padding:12px 15px;border-radius:10px;background:#fafbff;margin-bottom:10px;transition:.2s;border:1px solid var(--border);}
+  .client-row:hover{background:#eef2ff;border-color:#c7d2fe;}
+  .client-info{flex:1;font-size:13px;}
+  .client-info strong{color:var(--primary-dark); font-size:15px;}
+  .client-meta{font-size:12px;color:var(--muted);margin-top:6px;display:flex;gap:10px;flex-wrap:wrap;}
+  .client-amount{font-weight:800;color:var(--success);font-size:16px;white-space:nowrap;}
+  .client-actions{display:flex; gap:5px;}
+
+  /* ================= 12 MONTH STRIP ================= */
+  .month-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px;margin-bottom:16px;}
+  .month-chip{
+    padding:10px 8px;border-radius:10px;background:#f5f7ff;text-align:center;cursor:pointer;
+    transition:.2s;border:2px solid transparent;
+  }
+  .month-chip:hover{background:#e8ecff;transform:translateY(-2px);}
+  .month-chip.active{border-color:var(--primary);background:#e0e7ff;}
+  .month-chip .m-label{font-size:11px;font-weight:700;color:#555;text-transform:uppercase;}
+  .month-chip .m-value{font-size:14px;font-weight:800;color:var(--primary-dark);margin-top:4px;}
+
+  h4.section-title{font-size:14px;color:var(--primary-dark);margin:20px 0 12px;padding-top:16px;border-top:1px dashed var(--border);display:flex;align-items:center;gap:8px;}
+
+  /* ================= RESPONSIVE ================= */
+  @media(max-width:600px){
+    .modal .form-grid{grid-template-columns:1fr;}
+    header h1{font-size:18px;}
+    .card .value{font-size:20px;}
+    th,td{padding:9px 6px;font-size:12px;}
+    .tab-btn{padding:11px 16px;font-size:13px;}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <header>
+    <div>
+      <h1>📊 Bill Collection Dashboard</h1>
+      <p>Team & Client Management • Rental Fee Tracking</p>
+    </div>
+    <div class="header-controls">
+      <select class="month-sel" id="globalMonth" onchange="renderAll()"></select>
+    </div>
+  </header>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('team',this)">👥 My Team</button>
+    <button class="tab-btn" onclick="switchTab('leaders',this)">🏆 Team Leaders</button>
+    <button class="tab-btn" onclick="switchTab('input',this)">➕ Data Input</button>
+  </div>
+
+  <!-- ================= TEAM TAB ================= -->
+  <div id="tab-team" class="tab-content active">
+    <div class="cards" id="teamCards"></div>
+
+    <!-- Team Members Table -->
+    <div class="panel">
+      <h3>👥 Team Member Overview</h3>
+      <div class="toolbar">
+        <select id="teamFilter" onchange="renderTeamTable()">
+          <option value="all">All Members</option>
+          <option value="top">Top Performers (≥80%)</option>
+          <option value="mid">Average (50–79%)</option>
+          <option value="low">Needs Attention (<50%)</option>
+        </select>
+        <input type="text" id="teamSearch" placeholder="🔍 Search member..." oninput="renderTeamTable()" style="min-width:200px;">
+      </div>
+      <div class="table-wrap">
+        <table id="teamTable">
+          <thead>
+            <tr>
+              <th>#</th><th>Member</th><th>Clients</th>
+              <th>Billed Amount</th><th>Collected</th><th>Due</th>
+              <th>Achievement</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 12 Months View -->
+    <div class="panel">
+      <h3>📅 12 Months Collection Overview</h3>
+      <div class="month-strip" id="monthStrip"></div>
+      <div class="chart-box"><canvas id="team12MonthChart"></canvas></div>
+      <h4 class="section-title">📋 Member-wise 12 Month Breakdown</h4>
+      <div class="table-wrap">
+        <table id="team12Table">
+          <thead><tr id="team12Head"></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= LEADERS TAB ================= -->
+  <div id="tab-leaders" class="tab-content">
+    <div class="cards" id="leaderCards"></div>
+
+    <div class="panel">
+      <h3>🏆 Team Leaders – Collection Comparison</h3>
+      <div class="chart-box"><canvas id="leaderChart"></canvas></div>
+    </div>
+
+    <div class="panel">
+      <h3>📊 Team Leader Ranking (Current Month)</h3>
+      <div class="table-wrap">
+        <table id="leaderTable">
+          <thead>
+            <tr><th>Rank</th><th>Leader</th><th>Team</th><th>Collection</th><th>Due</th><th>Total Billed</th><th>Achievement</th><th>Progress</th><th>Actions</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= INPUT TAB ================= -->
+  <div id="tab-input" class="tab-content">
+
+    <!-- Members -->
+    <div class="panel">
+      <h3>➕ Add / Update Team Member</h3>
+      <div class="form-grid">
+        <div class="field"><label>Member Name</label><input type="text" id="mName" placeholder="e.g. Rahim Uddin"></div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="addMember()">💾 Save Member</button>
+      <span id="mEditInfo" style="font-size:12px;color:var(--muted);margin-left:10px;"></span>
+      <h4 class="section-title">📋 All Members</h4>
+      <div class="table-wrap">
+        <table id="memberListTable">
+          <thead><tr><th>Name</th><th>Clients</th><th>Students</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Clients -->
+    <div class="panel">
+      <h3>👤 Client Management</h3>
+      <div class="toolbar">
+        <select id="clientMemberSelect" onchange="renderClientList()" style="min-width:200px;"></select>
+        <button class="btn btn-primary btn-sm" onclick="openClientModal()">➕ Add Client</button>
+      </div>
+      <div id="clientListContainer"></div>
+    </div>
+
+    <!-- Leaders -->
+    <div class="panel">
+      <h3>🏆 Team Leader (Other Teams)</h3>
+      <div class="form-grid">
+        <div class="field"><label>Leader Name</label><input type="text" id="lName" placeholder="e.g. Karim Ahmed"></div>
+        <div class="field"><label>Team Name</label><input type="text" id="lTeam" placeholder="e.g. Team Alpha"></div>
+        <div class="field"><label>Month</label><input type="month" id="lMonth"></div>
+        <div class="field"><label>Total Billed (৳)</label><input type="number" id="lBilled" placeholder="0"></div>
+        <div class="field"><label>Collected (৳)</label><input type="number" id="lCollected" placeholder="0"></div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="addLeader()">💾 Save Leader</button>
+      <span id="lEditInfo" style="font-size:12px;color:var(--muted);margin-left:10px;"></span>
+    </div>
+
+    <!-- Backup -->
+    <div class="panel">
+      <h3>💾 Backup & Restore</h3>
+      <div class="toolbar">
+        <button class="btn btn-primary btn-sm" onclick="exportData()">⬇ Export JSON</button>
+        <label class="btn btn-primary btn-sm" style="cursor:pointer;">⬆ Import JSON<input type="file" accept=".json" style="display:none" onchange="importData(event)"></label>
+        <button class="btn btn-danger btn-sm" onclick="resetAll()">🗑 Reset All</button>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-top:10px;">⚠️ Data is saved in your browser's local storage. Export regularly for backup.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============== CLIENT MODAL ============== -->
+<div class="modal-overlay" id="clientModal">
+  <div class="modal">
+    <h3>
+      <span id="clientModalTitle">➕ Add Client</span>
+      <button class="modal-close" onclick="closeClientModal()">✕</button>
+    </h3>
+    <div class="form-grid">
+      <div class="field" style="grid-column:1/-1;"><label>Client Name</label><input type="text" id="cName" placeholder="e.g. ABC School"></div>
+      <div class="field"><label>Rental Fee Type</label>
+        <select id="cType" onchange="toggleFeeFields()">
+          <option value="fixed">Fixed</option>
+          <option value="per_student">Per Student</option>
+        </select>
+      </div>
+      <div class="field"><label>Total Students</label><input type="number" id="cStudents" placeholder="0" oninput="updateClientPreview()"></div>
+      <div class="field" id="fixedField"><label>Fixed Amount (৳)</label><input type="number" id="cFixed" placeholder="0" oninput="updateClientPreview()"></div>
+      <div class="field" id="perStudentField" style="display:none;"><label>Per Student Fee (৳)</label><input type="number" id="cPerStudent" placeholder="0" oninput="updateClientPreview()"></div>
+      <div class="field" style="grid-column:1/-1;background:#eef2ff;padding:12px;border-radius:9px;">
+        <label style="margin:0;">💰 Auto-Calculated Total Bill</label>
+        <div style="font-size:20px;font-weight:800;color:var(--primary-dark);margin-top:4px;" id="clientTotalPreview">৳ 0</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" onclick="closeClientModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="saveClient()">💾 Save Client</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============== MEMBER DETAILS MODAL ============== -->
+<div class="modal-overlay" id="memberDetailModal">
+  <div class="modal">
+    <h3>
+      <span id="memberDetailTitle">Member Details</span>
+      <button class="modal-close" onclick="closeMemberDetailModal()">✕</button>
+    </h3>
+    <div id="memberDetailContent"></div>
+  </div>
+</div>
+
+<script>
+/* ================= STORAGE DB ================= */
+const DB = {
+  get members(){ return JSON.parse(localStorage.getItem('bcd2_members')||'[]'); },
+  set members(v){ localStorage.setItem('bcd2_members',JSON.stringify(v)); },
+  get clients(){ return JSON.parse(localStorage.getItem('bcd2_clients')||'[]'); },
+  set clients(v){ localStorage.setItem('bcd2_clients',JSON.stringify(v)); },
+  get collections(){ return JSON.parse(localStorage.getItem('bcd2_collections')||'{}'); },
+  set collections(v){ localStorage.setItem('bcd2_collections',JSON.stringify(v)); },
+  get leaders(){ return JSON.parse(localStorage.getItem('bcd2_leaders')||'[]'); },
+  set leaders(v){ localStorage.setItem('bcd2_leaders',JSON.stringify(v)); },
+};
+
+let editMemberId = null, editLeaderId = null, editClientId = null;
+let teamChartObj = null, leaderChartObj = null;
+
+/* ================= HELPERS ================= */
+const fmt = n => '৳ ' + Number(n||0).toLocaleString('en-IN');
+const pct = (c,t) => t>0 ? Math.min(100, Math.round((c/t)*100)) : 0;
+const statusOf = p => p>=80 ? ['good','Excellent'] : p>=50 ? ['mid','Average'] : ['low','Low'];
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function currentMonth(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function monthLabel(m){ if(!m) return ''; const [y,mo]=m.split('-'); return MONTH_NAMES[+mo-1]+' '+y; }
+function monthShort(m){ const [,mo]=m.split('-'); return MONTH_NAMES[+mo-1]; }
+
+// Get collection for member in a specific month
+function getCollected(memberId, month){
+  const m = month || currentMonth();
+  return Number((DB.collections[memberId]||{})[m] || 0);
+}
+
+// Clients of a member
+function getClients(memberId){ return DB.clients.filter(c=>c.memberId===memberId); }
+
+// Total students across clients
+function getTotalStudents(memberId){
+  return getClients(memberId).reduce((s,c)=>s+Number(c.students||0),0);
+}
+
+// Total billed for member (across all clients)
+function getTotalBilled(memberId){
+  return getClients(memberId).reduce((s,c)=>{
+    if(c.feeType==='per_student') return s + Number(c.students||0)*Number(c.perStudentFee||0);
+    return s + Number(c.fixedAmount||0);
+  },0);
+}
+
+/* ================= MONTH SELECT ================= */
+function buildMonthOptions(){
+  const sel = document.getElementById('globalMonth');
+  const months = new Set([currentMonth()]);
+  Object.values(DB.collections).forEach(obj=>Object.keys(obj).forEach(m=>months.add(m)));
+  DB.leaders.forEach(l=>l.month && months.add(l.month));
+  const sorted = [...months].sort().reverse();
+  sel.innerHTML = sorted.map(m=>`<option value="${m}">${monthLabel(m)}</option>`).join('');
+  sel.value = currentMonth();
+}
+function getSelectedMonth(){ return document.getElementById('globalMonth').value; }
+
+// Get last 12 months from selected month
+function get12Months(){
+  const base = getSelectedMonth();
+  const [y,mo] = base.split('-').map(Number);
+  const arr = [];
+  for(let i=11;i>=0;i--){
+    const d = new Date(y, mo-1-i, 1);
+    arr.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));
+  }
+  return arr;
+}
+
+/* ================= TABS ================= */
+function switchTab(name, btn){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='leaders') setTimeout(renderLeaderChart,50);
+  if(name==='team') setTimeout(renderTeam12Chart,50);
+}
+
+/* ================= TEAM CARDS ================= */
+function renderTeamCards(){
+  const month = getSelectedMonth();
+  const members = DB.members;
+  let billed=0, collected=0, totalClients=0, totalStudents=0;
+  members.forEach(m=>{
+    billed += getTotalBilled(m.id);
+    collected += getCollected(m.id, month);
+    totalClients += getClients(m.id).length;
+    totalStudents += getTotalStudents(m.id);
+  });
+  const due = Math.max(0, billed-collected);
+  const rate = pct(collected, billed);
+
+  document.getElementById('teamCards').innerHTML = `
+    <div class="card"><div class="icon">👥</div><div class="label">Team Members</div><div class="value">${members.length}</div><div class="sub">${monthLabel(month)}</div></div>
+    <div class="card purple"><div class="icon">🏫</div><div class="label">Total Clients</div><div class="value">${totalClients}</div><div class="sub">${totalStudents} students</div></div>
+    <div class="card orange"><div class="icon">🧾</div><div class="label">Total Billed</div><div class="value">${fmt(billed)}</div><div class="sub">All clients</div></div>
+    <div class="card green"><div class="icon">💰</div><div class="label">Collected</div><div class="value">${fmt(collected)}</div><div class="sub">Achievement ${rate}%</div></div>
+    <div class="card red"><div class="icon">⏳</div><div class="label">Due</div><div class="value">${fmt(due)}</div><div class="sub">Pending collection</div></div>
+  `;
+}
+
+/* ================= TEAM TABLE ================= */
+function renderTeamTable(){
+  const month = getSelectedMonth();
+  const filter = document.getElementById('teamFilter').value;
+  const search = document.getElementById('teamSearch').value.toLowerCase();
+  let list = DB.members.map(m=>{
+    const billed = getTotalBilled(m.id);
+    const collected = getCollected(m.id, month);
+    const due = Math.max(0, billed-collected);
+    const p = pct(collected, billed);
+    return {...m, billed, collected, due, p, clients:getClients(m.id).length};
+  }).filter(m=>{
+    if(filter==='top' && m.p<80) return false;
+    if(filter==='mid' && (m.p<50||m.p>=80)) return false;
+    if(filter==='low' && m.p>=50) return false;
+    if(search && !m.name.toLowerCase().includes(search)) return false;
+    return true;
+  }).sort((a,b)=>b.collected-a.collected);
+
+  const tbody = document.querySelector('#teamTable tbody');
+  if(!list.length){ tbody.innerHTML=`<tr><td colspan="8" class="empty"><div class="empty-icon">📭</div>No data. Add members in Data Input tab.</td></tr>`; return; }
+
+  tbody.innerHTML = list.map((m,i)=>{
+    return `<tr class="${i===0?'rank-1':''}">
+      <td>${i===0?'🥇':i+1}</td>
+      <td><strong>${m.name}</strong></td>
+      <td>${m.clients}</td>
+      <td>${fmt(m.billed)}</td>
+      <td style="color:var(--success);font-weight:700;">${fmt(m.collected)}</td>
+      <td style="color:var(--danger);font-weight:700;">${fmt(m.due)}</td>
+      <td><strong>${m.p}%</strong></td>
+      <td>
+        <button class="btn btn-edit btn-icon" onclick="viewMemberDetail('${m.id}')" title="View Clients">👁</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+/* ================= 12 MONTH VIEW ================= */
+function renderTeam12Months(){
+  const months = get12Months();
+  const strip = document.getElementById('monthStrip');
+  strip.innerHTML = months.map(m=>{
+    const total = DB.members.reduce((s,mem)=>s+getCollected(mem.id,m),0);
+    return `<div class="month-chip ${m===getSelectedMonth()?'active':''}" onclick="document.getElementById('globalMonth').value='${m}';renderAll();">
+      <div class="m-label">${monthShort(m)} ${m.split('-')[0].slice(2)}</div>
+      <div class="m-value">${total>=1000?Math.round(total/1000)+'K':total}</div>
+    </div>`;
+  }).join('');
+
+  const head = document.getElementById('team12Head');
+  head.innerHTML = `<th>Member</th>${months.map(m=>`<th style="text-align:right">${monthShort(m)}</th>`).join('')}<th style="text-align:right">Total</th>`;
+
+  const tbody = document.querySelector('#team12Table tbody');
+  if(!DB.members.length){ tbody.innerHTML=`<tr><td colspan="${months.length+2}" class="empty">No members yet</td></tr>`; return; }
+
+  tbody.innerHTML = DB.members.map(m=>{
+    const vals = months.map(mo=>getCollected(m.id,mo));
+    const total = vals.reduce((a,b)=>a+b,0);
+    return `<tr>
+      <td><strong>${m.name}</strong></td>
+      ${vals.map(v=>`<td style="text-align:right">${v?fmt(v):'—'}</td>`).join('')}
+      <td style="text-align:right;font-weight:800;color:var(--primary-dark);">${fmt(total)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderTeam12Chart(){
+  const months = get12Months();
+  const labels = months.map(m=>monthShort(m)+' '+m.split('-')[0].slice(2));
+  const data = months.map(m=>DB.members.reduce((s,mem)=>s+getCollected(mem.id,m),0));
+  const ctx = document.getElementById('team12MonthChart');
+  if(teamChartObj) teamChartObj.destroy();
+  teamChartObj = new Chart(ctx,{
+    type:'line',
+    data:{
+      labels,
+      datasets:[{
+        label:'Total Collected',
+        data,
+        borderColor:'#4361ee',
+        backgroundColor:'rgba(67,97,238,.12)',
+        fill:true,
+        tension:.4,
+        pointBackgroundColor:'#4361ee',
+        pointRadius:5,
+        pointHoverRadius:8,
+        borderWidth:3
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#1a1a2e',padding:12,cornerRadius:8,titleFont:{size:13},bodyFont:{size:13},
+          callbacks:{label:c=>'Collected: ৳'+c.parsed.y.toLocaleString('en-IN')}
+        }
+      },
+      scales:{
+        y:{beginAtZero:true,grid:{color:'#eef2ff'},ticks:{callback:v=>'৳'+v.toLocaleString('en-IN')}},
+        x:{grid:{display:false}}
+      }
+    }
+  });
+}
+
+/* ================= LEADERS ================= */
+function renderLeaderCards(){
+  const month = getSelectedMonth();
+  const list = DB.leaders.filter(l=>l.month===month);
+  let combinedBilled=0, combinedCollected=0;
+  list.forEach(l=>{
+    combinedBilled += Number(l.billed||0);
+    combinedCollected += Number(l.collected||0);
+  });
+  const combinedDue = Math.max(0, combinedBilled-combinedCollected);
+  const rate = pct(combinedCollected, combinedBilled);
+
+  document.getElementById('leaderCards').innerHTML = `
+    <div class="card"><div class="icon">🏆</div><div class="label">Team Leaders</div><div class="value">${list.length}</div><div class="sub">${monthLabel(month)}</div></div>
+    <div class="card green"><div class="icon">💰</div><div class="label">Combined Collection</div><div class="value">${fmt(combinedCollected)}</div><div class="sub">All leaders</div></div>
+    <div class="card red"><div class="icon">⏳</div><div class="label">Combined Due</div><div class="value">${fmt(combinedDue)}</div><div class="sub">Pending</div></div>
+    <div class="card orange"><div class="icon">🧾</div><div class="label">Combined Billed</div><div class="value">${fmt(combinedBilled)}</div><div class="sub">Total billed</div></div>
+    <div class="card purple"><div class="icon">📈</div><div class="label">Achievement</div><div class="value">${rate}%</div><div class="sub">Collection rate</div></div>
+  `;
+}
+
+function renderLeaderTable(){
+  const month = getSelectedMonth();
+  let list = DB.leaders.filter(l=>l.month===month).map(l=>{
+    const billed = Number(l.billed||0);
+    const collected = Number(l.collected||0);
+    const due = Math.max(0, billed-collected);
+    const p = pct(collected, billed);
+    return {...l, billed, collected, due, p};
+  }).sort((a,b)=>b.p-a.p);
+
+  const tbody = document.querySelector('#leaderTable tbody');
+  if(!list.length){ tbody.innerHTML=`<tr><td colspan="9" class="empty"><div class="empty-icon">📭</div>No leader data for this month.</td></tr>`; return; }
+
+  tbody.innerHTML = list.map((l,i)=>{
+    const [cls,txt] = statusOf(l.p);
+    return `<tr class="${i===0?'rank-1':''}">
+      <td>${i===0?'🥇':i+1}</td>
+      <td><strong>${l.name}</strong></td>
+      <td>${l.team||'—'}</td>
+      <td style="color:var(--success);font-weight:700;">${fmt(l.collected)}</td>
+      <td style="color:var(--danger);font-weight:700;">${fmt(l.due)}</td>
+      <td>${fmt(l.billed)}</td>
+      <td><strong>${l.p}%</strong></td>
+      <td><div class="progress"><div style="width:${l.p}%"></div></div></td>
+      <td>
+        <button class="btn btn-edit btn-icon" onclick="editLeader('${l.id}')" title="Edit">✏️</button>
+        <button class="btn btn-danger btn-icon" onclick="delLeader('${l.id}')" title="Delete">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderLeaderChart(){
+  const month = getSelectedMonth();
+  const list = DB.leaders.filter(l=>l.month===month).sort((a,b)=>b.collected-a.collected);
+  const ctx = document.getElementById('leaderChart');
+  if(leaderChartObj) leaderChartObj.destroy();
+  if(!list.length){
+    leaderChartObj = new Chart(ctx,{type:'bar',data:{labels:['No data'],datasets:[{data:[0]}]},options:{plugins:{legend:{display:false}}}});
+    return;
+  }
+  leaderChartObj = new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels: list.map(l=>l.name),
+      datasets:[
+        {label:'Collected',data:list.map(l=>l.collected),backgroundColor:'#4361ee',borderRadius:8,borderSkipped:false},
+        {label:'Due',data:list.map(l=>l.due||Math.max(0,(l.billed||0)-(l.collected||0))),backgroundColor:'#ef476f',borderRadius:8,borderSkipped:false}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{position:'top',labels:{usePointStyle:true,padding:16}},
+        tooltip:{
+          backgroundColor:'#1a1a2e',padding:12,cornerRadius:8,
+          callbacks:{label:c=>c.dataset.label+': ৳'+c.parsed.y.toLocaleString('en-IN')}
+        }
+      },
+      scales:{
+        y:{beginAtZero:true,grid:{color:'#eef2ff'},ticks:{callback:v=>'৳'+v.toLocaleString('en-IN')}},
+        x:{grid:{display:false}}
+      }
+    }
+  });
+}
+
+/* ================= MEMBER ADD/EDIT ================= */
+function addMember(){
+  const name = document.getElementById('mName').value.trim();
+  if(!name){ alert('Member name দিন!'); return; }
+  const list = DB.members;
+  if(editMemberId){
+    const i = list.findIndex(x=>x.id===editMemberId);
+    if(i>-1) list[i].name = name;
+    editMemberId = null;
+    document.getElementById('mEditInfo').textContent = '';
+  } else {
+    list.push({id:uid(), name});
+  }
+  DB.members = list;
+  document.getElementById('mName').value = '';
+  renderAll();
+  fillClientMemberSelect();
+  alert('✅ Saved!');
+}
+function editMember(id){
+  const m = DB.members.find(x=>x.id===id); if(!m) return;
+  document.getElementById('mName').value = m.name;
+  editMemberId = id;
+  document.getElementById('mEditInfo').textContent = '✏️ Editing: '+m.name;
+  switchTab('input', document.querySelectorAll('.tab-btn')[2]);
+  document.getElementById('mName').focus();
+}
+function delMember(id){
+  if(!confirm('Delete this member and all their clients?')) return;
+  DB.members = DB.members.filter(x=>x.id!==id);
+  DB.clients = DB.clients.filter(c=>c.memberId!==id);
+  renderAll();
+  fillClientMemberSelect();
+}
+
+function renderMemberListTable(){
+  const tbody = document.querySelector('#memberListTable tbody');
+  if(!DB.members.length){ tbody.innerHTML=`<tr><td colspan="4" class="empty">No members yet</td></tr>`; return; }
+  tbody.innerHTML = DB.members.map(m=>`
+    <tr>
+      <td><strong>${m.name}</strong></td>
+      <td>${getClients(m.id).length}</td>
+      <td>${getTotalStudents(m.id)}</td>
+      <td>
+        <button class="btn btn-edit btn-icon" onclick="editMember('${m.id}')">✏️</button>
+        <button class="btn btn-danger btn-icon" onclick="delMember('${m.id}')">🗑</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+/* ================= CLIENT MANAGEMENT ================= */
+function fillClientMemberSelect(){
+  const sel = document.getElementById('clientMemberSelect');
+  const cur = sel.value;
+  sel.innerHTML = DB.members.length
+    ? DB.members.map(m=>`<option value="${m.id}">${m.name}</option>`).join('')
+    : '<option value="">No members — add first</option>';
+  if(cur && DB.members.find(m=>m.id===cur)) sel.value = cur;
+  renderClientList();
+}
+
+function renderClientList(){
+  const mid = document.getElementById('clientMemberSelect').value;
+  const container = document.getElementById('clientListContainer');
+  if(!mid){ container.innerHTML = `<div class="empty"><div class="empty-icon">👤</div>Add a team member first.</div>`; return; }
+  const clients = getClients(mid);
+  if(!clients.length){ container.innerHTML = `<div class="empty"><div class="empty-icon">📭</div>No clients yet. Click "Add Client" to start.</div>`; return; }
+
+  container.innerHTML = clients.map(c=>{
+    const total = c.feeType==='per_student' ? Number(c.students||0)*Number(c.perStudentFee||0) : Number(c.fixedAmount||0);
+    return `<div class="client-row">
+      <div class="client-info">
+        <strong>${c.name}</strong>
+        <div class="client-meta">
+          ${c.students} students • 
+          <span class="badge ${c.feeType==='per_student'?'type-per':'type-fixed'}">${c.feeType==='per_student'?'Per Student':'Fixed'}</span>
+          ${c.feeType==='per_student' ? ` • ৳${Number(c.perStudentFee||0).toLocaleString('en-IN')}/student` : ` • Fixed ৳${Number(c.fixedAmount||0).toLocaleString('en-IN')}`}
+        </div>
+      </div>
+      <div class="client-amount">${fmt(total)}</div>
+      <div class="client-actions">
+        <button class="btn btn-edit btn-icon" onclick="openClientModal('${c.id}')">✏️</button>
+        <button class="btn btn-danger btn-icon" onclick="delClient('${c.id}')">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openClientModal(clientId){
+  const mid = document.getElementById('clientMemberSelect').value;
+  if(!mid){ alert('First select a member.'); return; }
+  editClientId = clientId || null;
+  document.getElementById('clientModalTitle').textContent = editClientId ? '✏️ Edit Client' : '➕ Add Client';
+  if(editClientId){
+    const c = DB.clients.find(x=>x.id===editClientId);
+    if(!c) return;
+    document.getElementById('cName').value = c.name;
+    document.getElementById('cType').value = c.feeType;
+    document.getElementById('cStudents').value = c.students||0;
+    document.getElementById('cFixed').value = c.fixedAmount||0;
+    document.getElementById('cPerStudent').value = c.perStudentFee||0;
+  } else {
+    document.getElementById('cName').value = '';
+    document.getElementById('cType').value = 'fixed';
+    document.getElementById('cStudents').value = 0;
+    document.getElementById('cFixed').value = 0;
+    document.getElementById('cPerStudent').value = 0;
+  }
+  toggleFeeFields();
+  updateClientPreview();
+  document.getElementById('clientModal').classList.add('show');
+}
+function closeClientModal(){
+  document.getElementById('clientModal').classList.remove('show');
+  editClientId = null;
+}
+function toggleFeeFields(){
+  const t = document.getElementById('cType').value;
+  document.getElementById('fixedField').style.display = t==='fixed' ? 'flex' : 'none';
+  document.getElementById('perStudentField').style.display = t==='per_student' ? 'flex' : 'none';
+  updateClientPreview();
+}
+function updateClientPreview(){
+  const t = document.getElementById('cType').value;
+  const stud = Number(document.getElementById('cStudents').value)||0;
+  const fixed = Number(document.getElementById('cFixed').value)||0;
+  const per = Number(document.getElementById('cPerStudent').value)||0;
+  const total = t==='per_student' ? stud*per : fixed;
+  document.getElementById('clientTotalPreview').textContent = fmt(total);
+}
+function saveClient(){
+  const mid = document.getElementById('clientMemberSelect').value;
+  if(!mid){ alert('Select a member.'); return; }
+  const name = document.getElementById('cName').value.trim();
+  if(!name){ alert('Client name দিন!'); return; }
+  const feeType = document.getElementById('cType').value;
+  const students = Number(document.getElementById('cStudents').value)||0;
+  const fixedAmount = Number(document.getElementById('cFixed').value)||0;
+  const perStudentFee = Number(document.getElementById('cPerStudent').value)||0;
+
+  const list = DB.clients;
+  if(editClientId){
+    const i = list.findIndex(x=>x.id===editClientId);
+    if(i>-1) list[i] = {...list[i], name, feeType, students, fixedAmount, perStudentFee};
+  } else {
+    list.push({id:uid(), memberId:mid, name, feeType, students, fixedAmount, perStudentFee});
+  }
+  DB.clients = list;
+  closeClientModal();
+  renderAll();
+  renderClientList();
+  alert('✅ Client saved!');
+}
+function delClient(id){
+  if(!confirm('Delete this client?')) return;
+  DB.clients = DB.clients.filter(x=>x.id!==id);
+  renderAll();
+  renderClientList();
+}
+
+/* ================= MEMBER DETAILS (MODAL) ================= */
+function viewMemberDetail(id){
+  const m = DB.members.find(x=>x.id===id); if(!m) return;
+  const month = getSelectedMonth();
+  const clients = getClients(id);
+  const billed = getTotalBilled(id);
+  const collected = getCollected(id, month);
+  const due = Math.max(0, billed-collected);
+
+  document.getElementById('memberDetailTitle').textContent = `👁 ${m.name} - ${monthLabel(month)}`;
+
+  let html = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
+      <div style="background:#eef2ff;padding:12px;border-radius:9px;">
+        <div style="font-size:11px;color:#888;text-transform:uppercase;">Billed</div>
+        <div style="font-size:16px;font-weight:800;color:var(--primary-dark);">${fmt(billed)}</div>
+      </div>
+      <div style="background:#d8f5ea;padding:12px;border-radius:9px;">
+        <div style="font-size:11px;color:#888;text-transform:uppercase;">Collected</div>
+        <div style="font-size:16px;font-weight:800;color:var(--success);">${fmt(collected)}</div>
+      </div>
+      <div style="background:#ffe0e8;padding:12px;border-radius:9px;">
+        <div style="font-size:11px;color:#888;text-transform:uppercase;">Due</div>
+        <div style="font-size:16px;font-weight:800;color:var(--danger);">${fmt(due)}</div>
+      </div>
+    </div>
+    <h4 style="font-size:14px;color:var(--primary-dark);margin-bottom:12px;border-bottom:1px solid #eee;padding-bottom:8px;">Client List (${clients.length})</h4>
+  `;
+
+  if(clients.length){
+    html += clients.map(c=>{
+      const total = c.feeType==='per_student' ? Number(c.students||0)*Number(c.perStudentFee||0) : Number(c.fixedAmount||0);
+      const metaDetails = c.feeType === 'per_student' 
+        ? `${c.students} Students × ৳${c.perStudentFee}/student`
+        : `Fixed Rental Fee`;
+
+      return `<div class="client-row">
+        <div class="client-info">
+          <strong>${c.name}</strong>
+          <div class="client-meta">
+            <span class="badge ${c.feeType==='per_student'?'type-per':'type-fixed'}">${c.feeType==='per_student'?'Per Student':'Fixed'}</span>
+            <span>${metaDetails}</span>
+          </div>
+        </div>
+        <div class="client-amount">${fmt(total)}</div>
+        <div class="client-actions">
+          <button class="btn btn-edit btn-icon" onclick="editClientFromDetails('${c.id}', '${id}')" title="Edit Client">✏️</button>
+        </div>
+      </div>`;
+    }).join('');
+  } else {
+    html += `<div style="color:#999;font-size:13px;padding:20px;text-align:center;background:#fafbff;border-radius:10px;">No clients found under this member.</div>`;
+  }
+
+  document.getElementById('memberDetailContent').innerHTML = html;
+  document.getElementById('memberDetailModal').classList.add('show');
+}
+
+function closeMemberDetailModal(){
+  document.getElementById('memberDetailModal').classList.remove('show');
+}
+
+// Edit client redirecting from member details to data input tab
+function editClientFromDetails(clientId, memberId) {
+  closeMemberDetailModal();
+  switchTab('input', document.querySelectorAll('.tab-btn')[2]);
+  setTimeout(() => {
+    document.getElementById('clientMemberSelect').value = memberId;
+    renderClientList();
+    openClientModal(clientId);
+  }, 100);
+}
+
+/* ================= LEADER ADD/EDIT ================= */
+function addLeader(){
+  const name = document.getElementById('lName').value.trim();
+  const team = document.getElementById('lTeam').value.trim();
+  const month = document.getElementById('lMonth').value || currentMonth();
+  const billed = Number(document.getElementById('lBilled').value)||0;
+  const collected = Number(document.getElementById('lCollected').value)||0;
+  if(!name){ alert('Leader name দিন!'); return; }
+
+  const list = DB.leaders;
+  if(editLeaderId){
+    const i = list.findIndex(x=>x.id===editLeaderId);
+    if(i>-1) list[i] = {...list[i], name, team, month, billed, collected};
+    editLeaderId = null;
+    document.getElementById('lEditInfo').textContent = '';
+  } else {
+    list.push({id:uid(), name, team, month, billed, collected});
+  }
+  DB.leaders = list;
+  ['lName','lTeam','lBilled','lCollected'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('lMonth').value = currentMonth();
+  buildMonthOptions();
+  document.getElementById('globalMonth').value = month;
+  renderAll();
+  alert('✅ Leader saved!');
+}
+function editLeader(id){
+  const l = DB.leaders.find(x=>x.id===id); if(!l) return;
+  document.getElementById('lName').value = l.name;
+  document.getElementById('lTeam').value = l.team||'';
+  document.getElementById('lMonth').value = l.month;
+  document.getElementById('lBilled').value = l.billed||0;
+  document.getElementById('lCollected').value = l.collected||0;
+  editLeaderId = id;
+  document.getElementById('lEditInfo').textContent = '✏️ Editing: '+l.name;
+  switchTab('input', document.querySelectorAll('.tab-btn')[2]);
+}
+function delLeader(id){
+  if(!confirm('Delete this leader?')) return;
+  DB.leaders = DB.leaders.filter(x=>x.id!==id);
+  renderAll();
+}
+
+/* ================= BACKUP ================= */
+function exportData(){
+  const data = {members:DB.members, clients:DB.clients, collections:DB.collections, leaders:DB.leaders, exportedAt:new Date().toISOString()};
+  const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'bill-dashboard-backup-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+}
+function importData(e){
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    try{
+      const d = JSON.parse(ev.target.result);
+      if(!Array.isArray(d.members)) throw 0;
+      if(!confirm('This will REPLACE current data. Continue?')) return;
+      DB.members = d.members||[];
+      DB.clients = d.clients||[];
+      DB.collections = d.collections||{};
+      DB.leaders = d.leaders||[];
+      buildMonthOptions(); renderAll(); fillClientMemberSelect();
+      alert('✅ Imported!');
+    }catch{ alert('❌ Invalid file.'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+function resetAll(){
+  if(!confirm('⚠️ সব data মুছে যাবে!')) return;
+  if(!confirm('Really delete everything?')) return;
+  ['bcd2_members','bcd2_clients','bcd2_collections','bcd2_leaders'].forEach(k=>localStorage.removeItem(k));
+  buildMonthOptions(); renderAll(); fillClientMemberSelect();
+}
+
+/* ================= MASTER RENDER ================= */
+function renderAll(){
+  renderTeamCards();
+  renderTeamTable();
+  renderTeam12Months();
+  renderTeam12Chart();
+  renderLeaderCards();
+  renderLeaderTable();
+  renderMemberListTable();
+  renderClientList();
+  if(document.getElementById('tab-leaders').classList.contains('active')) renderLeaderChart();
+}
+
+/* ================= INIT ================= */
+(function init(){
+  document.getElementById('lMonth').value = currentMonth();
+  buildMonthOptions();
+
+  // Demo data on first run
+  if(!localStorage.getItem('bcd2_members')){
+    const demoMembers = ['Rahim Uddin','Karim Sheikh','Fatema Akter','Jamal Hossain','Nasrin Sultana'];
+    const members = demoMembers.map(n=>({id:uid(), name:n}));
+    DB.members = members;
+
+    // Demo clients
+    const clients = [];
+    members.forEach((m,i)=>{
+      const n = (i%3)+1;
+      for(let j=0;j<n;j++){
+        const isPer = j%2===0;
+        clients.push({
+          id:uid(), memberId:m.id, name:'Client '+(j+1)+' of '+m.name.split(' ')[0],
+          feeType: isPer?'per_student':'fixed',
+          students: isPer? (10+Math.floor(Math.random()*30)) : (5+Math.floor(Math.random()*20)),
+          perStudentFee: isPer? (200+Math.floor(Math.random()*300)) : 0,
+          fixedAmount: !isPer? (5000+Math.floor(Math.random()*15000)) : 0
+        });
+      }
+    });
+    DB.clients = clients;
+
+    // Demo collections for last 12 months
+    const coll = {};
+    const now = new Date();
+    members.forEach(m=>{
+      coll[m.id] = {};
+      for(let i=0;i<12;i++){
+        const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+        const key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+        const base = 15000 + Math.floor(Math.random()*30000);
+        coll[m.id][key] = i===0 ? Math.floor(base*0.6) : base;
+      }
+    });
+    DB.collections = coll;
+
+    // Demo leaders
+    const m = currentMonth();
+    DB.leaders = [
+      {id:uid(), name:'Karim Ahmed', team:'Team Alpha', month:m, billed:520000, collected:420000},
+      {id:uid(), name:'Sultana Begum', team:'Team Beta', month:m, billed:480000, collected:390000},
+      {id:uid(), name:'Rafiq Islam', team:'Team Gamma', month:m, billed:510000, collected:310000},
+      {id:uid(), name:'Nusrat Jahan', team:'Team Delta', month:m, billed:550000, collected:475000}
+    ];
+  }
+
+  fillClientMemberSelect();
+  renderAll();
+})();
+</script>
+</body>
+</html>
